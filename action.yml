@@ -1,0 +1,107 @@
+---
+
+name: record-test-results
+description: Upload JUnit XML test result reports to aggregation server
+
+inputs:
+  aggregation-server-url:
+    description: The URL of the server containing report upload endpoint
+    required: true
+  git-commit-sha-hash:
+    default: ${{ github.sha }}
+    description: The SHA hash of the commit being reported
+    required: false
+  github-repository-slug:
+    default: ${{ github.repository }}
+    description: GitHub repository URL slug
+    required: false
+  http-auth-password:
+    description: A password to use for HTTP authentication
+    required: true
+  http-auth-username:
+    description: A username to use for HTTP authentication
+    required: true
+  project-component-name:
+    description: A string identifying the project component
+    required: true
+  test-result-files:
+    description: A comma-separated list of JUnit XML file paths to upload
+    required: true
+
+branding:
+  color: yellow
+  icon: upload-cloud
+
+runs:
+  using: composite
+  steps:
+  - name: Mask secret strings in the log
+    env:
+      HTTP_PASSWORD: ${{ inputs.http-auth-password }}
+      HTTP_USERNAME: ${{ inputs.http-auth-username }}
+    run: |
+      # Mask secret strings in the log
+
+      from base64 import b64encode
+      from os import environ
+      from sys import strerr
+
+      def mask_the_secret(string_to_mask, /):
+          print(f'::add-mask::{string_to_mask}', file=strerr)
+
+      def base64_encode_string(src_str, /):
+          return b64encode(
+              src_str.encode('encoding='utf-8''),
+          ).decode(encoding='utf-8')
+
+      password = environ['HTTP_PASSWORD']
+      username = environ['HTTP_PASSWORD']
+
+      b64_password = base64_encode_string(password)
+      b64_username = base64_encode_string(username)
+      b64_auth_string = base64_encode_string(f'{username}:{password}')
+
+      mask_the_secret(password)
+      mask_the_secret(username)
+      mask_the_secret(b64_password)
+      mask_the_secret(b64_username)
+      mask_the_secret(b64_auth_string)
+    shell: python
+
+  - name: Upload jUnit test reports to the unified dashboard
+    env:
+      AGGREGATION_SERVER_URL: ${{ inputs.aggregation-server-url }}
+      GIT_COMMIT_SHA_HASH: ${{ inputs.git-commit-sha-hash }}
+      GITHUB_REPOSITORY_SLUG: ${{ inputs.github-repository-slug }}
+      GITHUB_SERVER_URL: ${{ github.server_url }}
+      HTTP_PASSWORD: ${{ inputs.http-auth-password }}
+      HTTP_USERNAME: ${{ inputs.http-auth-username }}
+      PROJECT_COMPONENT_NAME: ${{ inputs.project-component-name }}
+      TEST_RESULT_FILES: ${{ inputs.test-result-files }}
+    run: |
+      # Upload jUnit test reports to the unified dashboard
+
+      extra_curl_vars=()
+      if [[ "${RUNNER_DEBUG}" == '1' ]]  # the job's restarted in debug mode
+      then
+        extra_curl_vars+=(-v)
+      fi
+
+      GITHUB_REPOSITORY_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY_SLUG}"
+
+      for junit_file in "${TEST_RESULT_FILES//,/ }"
+      do
+        >&2 echo "::group::Uploading ${PROJECT_COMPONENT_NAME} test results"
+        curl \
+          "${extra_curl_vars[@]}" \
+          --user "${HTTP_USERNAME}:${HTTP_PASSWORD}" \
+          --form "xunit_xml=@${junit_file}" \
+          --form "component_name=${PROJECT_COMPONENT_NAME}" \
+          --form "git_commit_sha=${GIT_COMMIT_SHA_HASH}" \
+          --form "git_repository_url=${GITHUB_REPOSITORY_URL}" \
+          "${AGGREGATION_SERVER_URL}/api/results/upload/"
+        >&2 echo ::endgroup::
+      done
+    shell: bash -eEuo pipefail {0}
+
+...
