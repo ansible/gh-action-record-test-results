@@ -44,18 +44,18 @@ runs:
 
       from base64 import b64encode
       from os import environ
-      from sys import strerr
+      from sys import stderr
 
       def mask_the_secret(string_to_mask, /):
-          print(f'::add-mask::{string_to_mask}', file=strerr)
+          print(f'::add-mask::{string_to_mask}', file=stderr)
 
       def base64_encode_string(src_str, /):
           return b64encode(
-              src_str.encode('encoding='utf-8''),
+              src_str.encode(encoding='utf-8'),
           ).decode(encoding='utf-8')
 
       password = environ['HTTP_PASSWORD']
-      username = environ['HTTP_PASSWORD']
+      username = environ['HTTP_USERNAME']
 
       b64_password = base64_encode_string(password)
       b64_username = base64_encode_string(username)
