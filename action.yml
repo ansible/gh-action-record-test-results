@@ -82,14 +82,16 @@ runs:
       # Upload jUnit test reports to the unified dashboard
 
       extra_curl_vars=()
-      if [[ "${RUNNER_DEBUG:-}" == '1' ]]  # uses :- since RUNNER_DEBUG may be unset
+      # :- is used since RUNNER_DEBUG may be unset
+      if [[ "${RUNNER_DEBUG:-}" == '1' ]]
       then
         extra_curl_vars+=(-v)
       fi
 
       GITHUB_REPOSITORY_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY_SLUG}"
 
-      for junit_file in ${TEST_RESULT_FILES//,/ }  # unquoted to allow word splitting
+      # unquoted to allow word splitting
+      for junit_file in ${TEST_RESULT_FILES//,/ }
       do
         >&2 echo "::group::Uploading ${PROJECT_COMPONENT_NAME} test results"
         curl \
